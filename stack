@@ -1,0 +1,16 @@
+1. vector aesthetics
+wireframes --> changing primitive topology
+    Topology: 
+        line-list instead of triangle-list  
+        connected line segments
+    Hidden Line Removal: rendering object's faces into Depth Buffer without writing colors, then drawing the lines on top
+
+2. tech stack/ resources
+
+    lang: ts
+    core api: WebGPU (WGSL)
+    math: wgpu-matrix
+
+resources:
+    WebGPU Fundamentals
+    Elite Source Code: https://www.google.com/search?q=BBCElite.com
