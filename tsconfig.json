@@ -5,7 +5,9 @@
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
+    "skipLibCheck": true,
     "typeRoots": ["./node_modules/@webgpu/types", "./node_modules/@types"]
   },
-  "include": ["webgpu/**/*", "**/*.ts"]
+  "include": ["webgpu/**/*", "vite-env.d.ts"],
+  "exclude": ["node_modules"]
 }

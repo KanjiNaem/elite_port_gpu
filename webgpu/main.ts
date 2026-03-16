@@ -1,34 +1,43 @@
-import triangleVertWGSL from "../shaders/triangle.vert.wgsl?raw";
-import redFragWGSL from "../shaders/red.frag.wgsl?raw";
-import { quitIfWebGPUNotAvailableOrMissingFeatures } from "./utils";
+import { GUI } from 'dat.gui';
+import triangleVertWGSL from '../shaders/triangle.vert.wgsl';
+import redFragWGSL from '../shaders/red.frag.wgsl';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from './utils';
 
-const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
-  featureLevel: "compatibility",
+  featureLevel: 'compatibility',
 });
 const device = quitIfWebGPUNotAvailableOrMissingFeatures(
   adapter,
   await adapter?.requestDevice()
 );
 
-const context = canvas.getContext("webgpu");
-if (!context) {
-  throw new Error("WebGPU canvas context not available");
+const settings = { transientAttachment: false };
+if ('TRANSIENT_ATTACHMENT' in GPUTextureUsage) {
+  const gui = new GUI();
+  gui.add(settings, 'transientAttachment');
 }
-const gpuContext = context;
+
+const contextOrNull = canvas.getContext('webgpu');
+if (!contextOrNull) {
+  throw new Error('WebGPU context not available');
+}
+const context: GPUCanvasContext = contextOrNull;
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
-gpuContext.configure({
+context.configure({
   device,
   format: presentationFormat,
 });
 
+const sampleCount = 4;
+
 const pipeline = device.createRenderPipeline({
-  layout: "auto",
+  layout: 'auto',
   vertex: {
     module: device.createShaderModule({
       code: triangleVertWGSL,
@@ -45,21 +54,37 @@ const pipeline = device.createRenderPipeline({
     ],
   },
   primitive: {
-    topology: "triangle-list",
+    topology: 'triangle-list',
+  },
+  multisample: {
+    count: sampleCount,
   },
 });
 
 function frame() {
+  let usage = GPUTextureUsage.RENDER_ATTACHMENT;
+  if (settings.transientAttachment) {
+    usage |= GPUTextureUsage.TRANSIENT_ATTACHMENT;
+  }
+
+  const texture = device.createTexture({
+    size: [canvas.width, canvas.height],
+    sampleCount,
+    format: presentationFormat,
+    usage,
+  });
+  const view = texture.createView();
+
   const commandEncoder = device.createCommandEncoder();
-  const textureView = gpuContext.getCurrentTexture().createView();
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: textureView,
-        clearValue: [0, 0, 0, 0],
-        loadOp: "clear",
-        storeOp: "store",
+        view,
+        resolveTarget: context.getCurrentTexture().createView(),
+        clearValue: [0, 0, 0, 0], 
+        loadOp: 'clear',
+        storeOp: 'discard',
       },
     ],
   };
