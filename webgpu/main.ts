@@ -1,35 +1,35 @@
-import { GUI } from 'dat.gui';
-import triangleVertWGSL from '../shaders/triangle.vert.wgsl?raw';
-import redFragWGSL from '../shaders/red.frag.wgsl?raw';
-import { quitIfWebGPUNotAvailableOrMissingFeatures } from './utils';
+import { mat4 } from "wgpu-matrix";
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from "./utils";
+import { createWireframePipeline } from "./renderer";
+import { createCubeWireframe } from "./wireframe";
 
-const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+const canvas = document.querySelector("canvas") as HTMLCanvasElement;
 
 async function init() {
   const adapter = await navigator.gpu?.requestAdapter({
-    featureLevel: 'compatibility',
+    featureLevel: "compatibility",
   });
   const device = quitIfWebGPUNotAvailableOrMissingFeatures(
     adapter,
-    await adapter?.requestDevice()
+    await adapter?.requestDevice(),
   );
 
-  const settings = { transientAttachment: false };
-  if ('TRANSIENT_ATTACHMENT' in GPUTextureUsage) {
-    const gui = new GUI();
-    gui.add(settings, 'transientAttachment');
-  }
-
-  const contextOrNull = canvas.getContext('webgpu');
+  const contextOrNull = canvas.getContext("webgpu");
   if (!contextOrNull) {
-    throw new Error('WebGPU context not available');
+    throw new Error("WebGPU context not available");
   }
   const context: GPUCanvasContext = contextOrNull;
 
   function resizeCanvas() {
     const devicePixelRatio = window.devicePixelRatio;
-    const width = Math.max(1, Math.floor(canvas.clientWidth * devicePixelRatio));
-    const height = Math.max(1, Math.floor(canvas.clientHeight * devicePixelRatio));
+    const width = Math.max(
+      1,
+      Math.floor(canvas.clientWidth * devicePixelRatio),
+    );
+    const height = Math.max(
+      1,
+      Math.floor(canvas.clientHeight * devicePixelRatio),
+    );
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;
@@ -43,43 +43,23 @@ async function init() {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'opaque',
+    alphaMode: "opaque",
   });
 
   new ResizeObserver(resizeCanvas).observe(canvas);
 
-  const sampleCount = 4;
-  let msaaTexture: GPUTexture | null = null;
-  let lastWidth = 0;
-  let lastHeight = 0;
+  const { pipeline, mvpBuffer, colorBuffer, bindGroup } =
+    createWireframePipeline(device, presentationFormat);
 
-  const pipeline = device.createRenderPipeline({
-    layout: 'auto',
-    vertex: {
-      module: device.createShaderModule({
-        code: triangleVertWGSL,
-      }),
-    },
-    fragment: {
-      module: device.createShaderModule({
-        code: redFragWGSL,
-      }),
-      targets: [
-        {
-          format: presentationFormat,
-        },
-      ],
-    },
-    primitive: {
-      topology: 'triangle-list',
-    },
-    multisample: {
-      count: sampleCount,
-    },
-  });
+  const cube = createCubeWireframe(device);
 
-  async function frame() {
-    // Pause rendering when tab is hidden to reduce resource usage
+  const lineColor = new Float32Array([1, 0, 0, 0]);
+  device.queue.writeBuffer(colorBuffer, 0, lineColor);
+
+  let rotationAngle = 0;
+  const rotationSpeed = (20 * Math.PI) / 180;
+
+  function frame() {
     if (document.hidden) {
       setTimeout(() => requestAnimationFrame(frame), 500);
       return;
@@ -91,49 +71,54 @@ async function init() {
       return;
     }
 
-    // Reuse texture; only create new one when size changes
-    if (!msaaTexture || lastWidth !== width || lastHeight !== height) {
-      // Wait for GPU to finish before destroying the old texture
-      await device.queue.onSubmittedWorkDone();
-      msaaTexture?.destroy();
-      lastWidth = width;
-      lastHeight = height;
-      let usage = GPUTextureUsage.RENDER_ATTACHMENT;
-      if (settings.transientAttachment) {
-        usage |= GPUTextureUsage.TRANSIENT_ATTACHMENT;
-      }
-      msaaTexture = device.createTexture({
-        size: [width, height],
-        sampleCount,
-        format: presentationFormat,
-        usage,
-      });
-    }
-    const view = msaaTexture!.createView();
+    rotationAngle += rotationSpeed / 60;
 
+    const aspect = width / height;
+    const fov = (60 * Math.PI) / 180;
+    const projection = mat4.perspective(fov, aspect, 0.1, 1000);
+
+    const eye = [0, 0, 0] as const;
+    const target = [0, 0, -5] as const;
+    const up = [0, 1, 0] as const;
+    const view = mat4.lookAt(eye, target, up);
+
+    const translation = mat4.translation([0, 0, -5]);
+    const rotation = mat4.rotationY(rotationAngle);
+    const model = mat4.multiply(translation, rotation);
+
+    const mvp = mat4.multiply(projection, mat4.multiply(view, model));
+    device.queue.writeBuffer(
+      mvpBuffer,
+      0,
+      mvp.buffer,
+      mvp.byteOffset,
+      mvp.byteLength,
+    );
+
+    const view_ = context.getCurrentTexture().createView();
     const commandEncoder = device.createCommandEncoder();
 
     const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [
         {
-          view,
-          resolveTarget: context.getCurrentTexture().createView(),
+          view: view_,
           clearValue: [0, 0, 0, 1],
-          loadOp: 'clear',
-          storeOp: 'discard',
+          loadOp: "clear",
+          storeOp: "store",
         },
       ],
     };
 
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
-    passEncoder.draw(3);
+    passEncoder.setBindGroup(0, bindGroup);
+    passEncoder.setVertexBuffer(0, cube.vertexBuffer);
+    passEncoder.setIndexBuffer(cube.indexBuffer, "uint32");
+    passEncoder.drawIndexed(cube.indexCount);
     passEncoder.end();
 
     device.queue.submit([commandEncoder.finish()]);
 
-    // Wait for GPU to finish before next frame - prevents command buffer buildup
-    await device.queue.onSubmittedWorkDone();
     requestAnimationFrame(frame);
   }
 
