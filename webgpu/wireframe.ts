@@ -1,16 +1,18 @@
 /** Cube wireframe: 8 vertices, 12 edges. Vertices at ±0.5 on each axis. */
+// prettier-ignore
 const CUBE_VERTICES = new Float32Array([
   -0.5, -0.5, -0.5, // 0
   0.5, -0.5, -0.5,  // 1
   0.5, 0.5, -0.5,   // 2
-  -0.5, 0.5, -0.5, // 3
-  -0.5, -0.5, 0.5, // 4
-  0.5, -0.5, 0.5,  // 5
-  0.5, 0.5, 0.5,   // 6
-  -0.5, 0.5, 0.5,  // 7
+  -0.5, 0.5, -0.5,  // 3
+  -0.5, -0.5, 0.5,  // 4
+  0.5, -0.5, 0.5,   // 5
+  0.5, 0.5, 0.5,    // 6
+  -0.5, 0.5, 0.5,   // 7
 ]);
 
 /** 12 edges as index pairs (line-list: 24 indices) */
+// prettier-ignore
 const CUBE_INDICES = new Uint32Array([
   0, 1, 1, 2, 2, 3, 3, 0, // front face
   4, 5, 5, 6, 6, 7, 7, 4, // back face

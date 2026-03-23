@@ -2,6 +2,7 @@ import { mat4 } from "wgpu-matrix";
 import { quitIfWebGPUNotAvailableOrMissingFeatures } from "./utils";
 import { createWireframePipeline } from "./renderer";
 import { createCubeWireframe } from "./wireframe";
+import { createProjection, createView } from "./camera";
 
 const canvas = document.querySelector("canvas") as HTMLCanvasElement;
 
@@ -75,12 +76,11 @@ async function init() {
 
     const aspect = width / height;
     const fov = (60 * Math.PI) / 180;
-    const projection = mat4.perspective(fov, aspect, 0.1, 1000);
+    const projection = createProjection(fov, aspect, 0.1, 1000);
 
-    const eye = [0, 0, 0] as const;
-    const target = [0, 0, -5] as const;
-    const up = [0, 1, 0] as const;
-    const view = mat4.lookAt(eye, target, up);
+    const eye: [number, number, number] = [0, 0, 0];
+    const target: [number, number, number] = [0, 0, -5];
+    const view = createView(eye, target);
 
     const translation = mat4.translation([0, 0, -5]);
     const rotation = mat4.rotationY(rotationAngle);

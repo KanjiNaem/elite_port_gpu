@@ -1,0 +1,5 @@
+{
+  "plugins": ["prettier-plugin-multiline-arrays"],
+  "multilineArraysLinePattern": "8",
+  "multilineArraysWrapThreshold": 2
+}
