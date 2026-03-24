@@ -19,9 +19,18 @@ const dockedOverlay = document.querySelector(
 
 // yaw angles in radians for view snap/ distance-based projection keeps cube size constant
 const YAW_FORWARD = 0;
-const YAW_LEFT = (-65 * Math.PI) / 180;
-const YAW_RIGHT = (65 * Math.PI) / 180;
+const YAW_LEFT = (-90 * Math.PI) / 180;
+const YAW_RIGHT = (90 * Math.PI) / 180;
 const SNAP_DURATION_MS = 200;
+
+/** Which discrete cockpit view `yaw` is closest to (for ctrl+arrow stepping). */
+function yawViewBucket(yaw: number): "left" | "forward" | "right" {
+  const leftMid = (YAW_FORWARD + YAW_LEFT) / 2;
+  const rightMid = (YAW_FORWARD + YAW_RIGHT) / 2;
+  if (yaw < leftMid) return "left";
+  if (yaw > rightMid) return "right";
+  return "forward";
+}
 
 // --- DEBUG CAMERA ---
 const DEBUG_MOUSE_CAMERA = true;
@@ -140,14 +149,18 @@ async function init() {
         targetYaw = YAW_FORWARD;
         e.preventDefault();
         break;
-      case "ArrowLeft":
-        targetYaw = YAW_LEFT;
+      case "ArrowLeft": {
+        const v = yawViewBucket(currentYaw);
+        targetYaw = v === "right" ? YAW_FORWARD : YAW_LEFT;
         e.preventDefault();
         break;
-      case "ArrowRight":
-        targetYaw = YAW_RIGHT;
+      }
+      case "ArrowRight": {
+        const v = yawViewBucket(currentYaw);
+        targetYaw = v === "left" ? YAW_FORWARD : YAW_RIGHT;
         e.preventDefault();
         break;
+      }
       case "e":
         isDocked = !isDocked;
         dockedOverlay.style.display = isDocked ? "flex" : "none";

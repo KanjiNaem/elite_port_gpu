@@ -1,17 +1,17 @@
-import { drawFrameForward } from "./frame-forward";
+import { drawFrameForward, getForwardFrameBottomRibY } from "./frame-forward";
 import { drawFrameLeft } from "./frame-left";
 import { drawFrameRight } from "./frame-right";
 
 const AMBER = "#FFB000";
 const UI_BLUE = "#0055FF";
-const FRAME_INSET = 0.03;
-const RADAR_HEIGHT_RATIO = 0.25;
+/** Fraction of width/height inset for the wireframe (0 = lines meet canvas edges). */
+const FRAME_INSET = 0;
 const LINE_WIDTH = 2;
 
 // must match main.ts yaw angles
 const YAW_FORWARD = 0;
-const YAW_LEFT = (-65 * Math.PI) / 180;
-const YAW_RIGHT = (65 * Math.PI) / 180;
+const YAW_LEFT = (-90 * Math.PI) / 180;
+const YAW_RIGHT = (90 * Math.PI) / 180;
 
 const SLIDE_AMOUNT_FACTOR = 1.1;
 const VIEW_SNAP_EPSILON = 0.005;
@@ -72,9 +72,13 @@ function drawRadarArea(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
+  insetY: number,
 ): void {
-  const radarHeight = height * RADAR_HEIGHT_RATIO * 0.95;
-  const top = height - radarHeight;
+  const ribY = getForwardFrameBottomRibY(height, insetY);
+  const margin = Math.max(LINE_WIDTH, height * 0.004);
+  const top = ribY + margin;
+  const usableBottom = height - insetY;
+  const radarHeight = Math.max(usableBottom - top, 1);
   const centerX = width / 2;
   const centerY = top + radarHeight / 2;
   const radiusX = (width * 0.27) / 2;
@@ -139,7 +143,7 @@ export function renderCockpitOverlay(
   switch (state.kind) {
     case "forward":
       drawForwardFrame(params);
-      drawRadarArea(ctx, width, height);
+      drawRadarArea(ctx, width, height, insetY);
       if (isDocked) drawDockedHints(ctx, width, height);
       return;
 
@@ -159,7 +163,7 @@ export function renderCockpitOverlay(
       ctx.save();
       ctx.translate(to === "right" ? -slideAmount * t : slideAmount * t, 0);
       drawForwardFrame(params);
-      drawRadarArea(ctx, width, height);
+      drawRadarArea(ctx, width, height, insetY);
       if (isDocked) drawDockedHints(ctx, width, height);
       ctx.restore();
 

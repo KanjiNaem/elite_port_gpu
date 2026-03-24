@@ -1,3 +1,12 @@
+/** Y of the lowest forward-view horizontal rib (closest to screen bottom); UI below the frame should start under this. */
+export function getForwardFrameBottomRibY(
+  height: number,
+  insetY: number,
+): number {
+  const bottom = height - insetY;
+  return bottom - height * 0.185;
+}
+
 // proportional coords so frame scales correctly on resize/ fullscreen
 export function drawFrameForward(
   ctx: CanvasRenderingContext2D,
@@ -121,5 +130,35 @@ export function drawFrameForward(
   ctx.beginPath();
   ctx.moveTo(right - w(0.07), top + h(0.288));
   ctx.lineTo(right, top + h(0.33));
+  ctx.stroke();
+  // top left trapezoid c
+  ctx.beginPath();
+  ctx.moveTo(left + w(0.06), top + h(0.21));
+  ctx.lineTo(left + w(0.055), top + h(0.27));
+  ctx.stroke();
+  // top left trapezoid d
+  ctx.beginPath();
+  ctx.moveTo(left + w(0.06), top + h(0.21));
+  ctx.lineTo(left, top + h(0.13));
+  ctx.stroke();
+  // top left trapezoid b
+  ctx.beginPath();
+  ctx.moveTo(left + w(0.055), top + h(0.27));
+  ctx.lineTo(left, top + h(0.305));
+  ctx.stroke();
+  // top right trapezoid c
+  ctx.beginPath();
+  ctx.moveTo(right - w(0.06), top + h(0.21));
+  ctx.lineTo(right - w(0.055), top + h(0.27));
+  ctx.stroke();
+  // top right trapezoid d
+  ctx.beginPath();
+  ctx.moveTo(right - w(0.06), top + h(0.21));
+  ctx.lineTo(right, top + h(0.13));
+  ctx.stroke();
+  // top right trapezoid b
+  ctx.beginPath();
+  ctx.moveTo(right - w(0.055), top + h(0.27));
+  ctx.lineTo(right, top + h(0.305));
   ctx.stroke();
 }
