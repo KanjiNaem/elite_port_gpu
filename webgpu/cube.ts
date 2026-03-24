@@ -11,7 +11,7 @@ const CUBE_VERTICES = new Float32Array([
   -0.5, 0.5, 0.5,   // 7
 ]);
 
-/** 12 edges as index pairs (line-list: 24 indices) */
+// 12 edges as index pairs (line-list: 24 indices)
 // prettier-ignore
 const CUBE_INDICES = new Uint32Array([
   0, 1, 1, 2, 2, 3, 3, 0, // front face

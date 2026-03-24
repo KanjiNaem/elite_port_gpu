@@ -1,5 +1,5 @@
-import wireframeVertWGSL from "../shaders/wireframe.vert.wgsl?raw";
-import wireframeFragWGSL from "../shaders/wireframe.frag.wgsl?raw";
+import cubeVertWGSL from "../shaders/cube.vert.wgsl?raw";
+import cubeFragWGSL from "../shaders/cube.frag.wgsl?raw";
 
 export interface WireframePipeline {
   pipeline: GPURenderPipeline;
@@ -10,17 +10,17 @@ export interface WireframePipeline {
 
 export function createWireframePipeline(
   device: GPUDevice,
-  format: GPUTextureFormat
+  format: GPUTextureFormat,
 ): WireframePipeline {
   const vertModule = device.createShaderModule({
-    code: wireframeVertWGSL,
+    code: cubeVertWGSL,
   });
   const fragModule = device.createShaderModule({
-    code: wireframeFragWGSL,
+    code: cubeFragWGSL,
   });
 
   const mvpBuffer = device.createBuffer({
-    size: 64, // 4x4 mat4 = 64 bytes
+    size: 64,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -35,8 +35,7 @@ export function createWireframePipeline(
         binding: 0,
         visibility: GPUShaderStage.VERTEX,
         buffer: { type: "uniform" },
-      },
-      {
+      }, {
         binding: 1,
         visibility: GPUShaderStage.FRAGMENT,
         buffer: { type: "uniform" },
@@ -45,7 +44,9 @@ export function createWireframePipeline(
   });
 
   const pipelineLayout = device.createPipelineLayout({
-    bindGroupLayouts: [bindGroupLayout],
+    bindGroupLayouts: [
+      bindGroupLayout,
+    ],
   });
 
   const pipeline = device.createRenderPipeline({
@@ -55,13 +56,17 @@ export function createWireframePipeline(
       buffers: [
         {
           arrayStride: 12,
-          attributes: [{ format: "float32x3", offset: 0, shaderLocation: 0 }],
+          attributes: [
+            { format: "float32x3", offset: 0, shaderLocation: 0 },
+          ],
         },
       ],
     },
     fragment: {
       module: fragModule,
-      targets: [{ format }],
+      targets: [
+        { format },
+      ],
     },
     primitive: {
       topology: "line-list",
@@ -71,8 +76,10 @@ export function createWireframePipeline(
   const bindGroup = device.createBindGroup({
     layout: bindGroupLayout,
     entries: [
-      { binding: 0, resource: { buffer: mvpBuffer } },
-      { binding: 1, resource: { buffer: colorBuffer } },
+      { binding: 0, resource: { buffer: mvpBuffer } }, {
+        binding: 1,
+        resource: { buffer: colorBuffer },
+      },
     ],
   });
 
