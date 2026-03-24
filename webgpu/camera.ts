@@ -22,11 +22,15 @@ export function createView(
 // Creates view matrix from yaw (radians) around Y, camera at origin looking forward.
 export function createViewFromYaw(yawRad: number, distance = 5): Float32Array {
   const target: [number, number, number] = [
-    distance * Math.sin(yawRad), 0, -distance * Math.cos(yawRad),
+    distance * Math.sin(yawRad),
+    0,
+    -distance * Math.cos(yawRad),
   ];
   return createView(
     [
-      0, 0, 0,
+      0,
+      0,
+      0,
     ],
     target,
   );
@@ -44,5 +48,12 @@ export function createViewFromYawPitch(
     distance * Math.sin(pitchRad),
     -distance * Math.cos(yawRad) * cosP,
   ];
-  return createView([0, 0, 0], target);
+  return createView(
+    [
+      0,
+      0,
+      0,
+    ],
+    target,
+  );
 }

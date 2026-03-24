@@ -21,9 +21,9 @@ const dockedOverlay = document.querySelector(
 const YAW_FORWARD = 0;
 const YAW_LEFT = (-90 * Math.PI) / 180;
 const YAW_RIGHT = (90 * Math.PI) / 180;
-const SNAP_DURATION_MS = 200;
+// time constant for yaw easing (lower = faster snap between forward / left / right)
+const SNAP_DURATION_MS = 200 / 3;
 
-/** Which discrete cockpit view `yaw` is closest to (for ctrl+arrow stepping). */
 function yawViewBucket(yaw: number): "left" | "forward" | "right" {
   const leftMid = (YAW_FORWARD + YAW_LEFT) / 2;
   const rightMid = (YAW_FORWARD + YAW_RIGHT) / 2;
@@ -91,7 +91,10 @@ async function init() {
   const cube = createCubeWireframe(device);
 
   const lineColor = new Float32Array([
-    1, 0, 0, 0,
+    1,
+    0,
+    0,
+    0,
   ]);
   device.queue.writeBuffer(colorBuffer, 0, lineColor);
 
@@ -210,7 +213,10 @@ async function init() {
         {
           view: view_,
           clearValue: [
-            0, 0, 0, 1,
+            0,
+            0,
+            0,
+            1,
           ],
           loadOp: "clear",
           storeOp: "store",
@@ -222,7 +228,9 @@ async function init() {
 
     if (!isDocked) {
       const translation = mat4.translation([
-        0, 0, -20,
+        0,
+        0,
+        -20,
       ]);
       const rotation = mat4.rotationY(rotationAngle);
       const model = mat4.multiply(translation, rotation);

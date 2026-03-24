@@ -35,7 +35,8 @@ export function createWireframePipeline(
         binding: 0,
         visibility: GPUShaderStage.VERTEX,
         buffer: { type: "uniform" },
-      }, {
+      },
+      {
         binding: 1,
         visibility: GPUShaderStage.FRAGMENT,
         buffer: { type: "uniform" },
@@ -76,7 +77,8 @@ export function createWireframePipeline(
   const bindGroup = device.createBindGroup({
     layout: bindGroupLayout,
     entries: [
-      { binding: 0, resource: { buffer: mvpBuffer } }, {
+      { binding: 0, resource: { buffer: mvpBuffer } },
+      {
         binding: 1,
         resource: { buffer: colorBuffer },
       },

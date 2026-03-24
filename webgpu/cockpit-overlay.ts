@@ -1,10 +1,15 @@
+import {
+  cutoutForwardWindow,
+  cutoutLeftWindow,
+  cutoutRightWindow,
+} from "./cockpit-scene-mask";
 import { drawFrameForward, getForwardFrameBottomRibY } from "./frame-forward";
 import { drawFrameLeft } from "./frame-left";
 import { drawFrameRight } from "./frame-right";
 
 const AMBER = "#FFB000";
 const UI_BLUE = "#0055FF";
-/** Fraction of width/height inset for the wireframe (0 = lines meet canvas edges). */
+// fraction of width/ height inset for the wireframe (0 --> lines meet canvas edges)
 const FRAME_INSET = 0;
 const LINE_WIDTH = 2;
 
@@ -133,12 +138,39 @@ export function renderCockpitOverlay(
   const insetY = height * FRAME_INSET;
   const params: FrameParams = { ctx, width, height, insetX, insetY };
 
+  const state = getViewState(currentYaw);
+
+  // Flight: hide 3D scene outside the canopy window (black mask + hole for glass)
+  if (!isDocked) {
+    switch (state.kind) {
+      case "forward":
+        cutoutForwardWindow(ctx, width, height, insetX, insetY);
+        break;
+      case "left":
+        cutoutLeftWindow(ctx, width, height, insetX, insetY);
+        break;
+      case "right":
+        cutoutRightWindow(ctx, width, height, insetX, insetY);
+        break;
+      case "transition": {
+        // Prefer the target view's cutout once mostly snapped; avoids full black during slide
+        const { to, t } = state;
+        if (to === "left") {
+          if (t > 0.45) cutoutLeftWindow(ctx, width, height, insetX, insetY);
+          else cutoutForwardWindow(ctx, width, height, insetX, insetY);
+        } else {
+          if (t > 0.45) cutoutRightWindow(ctx, width, height, insetX, insetY);
+          else cutoutForwardWindow(ctx, width, height, insetX, insetY);
+        }
+        break;
+      }
+    }
+  }
+
   ctx.strokeStyle = AMBER;
   ctx.lineWidth = LINE_WIDTH;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-
-  const state = getViewState(currentYaw);
 
   switch (state.kind) {
     case "forward":

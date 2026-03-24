@@ -1,6 +1,6 @@
 export function quitIfWebGPUNotAvailableOrMissingFeatures(
   adapter: GPUAdapter | null | undefined,
-  device: GPUDevice | null | undefined
+  device: GPUDevice | null | undefined,
 ): GPUDevice {
   if (!navigator.gpu) {
     document.body.innerHTML = "<p>WebGPU is not supported in this browser.</p>";

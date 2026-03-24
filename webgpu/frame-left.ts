@@ -1,3 +1,131 @@
+import {
+  type CockpitLayout,
+  createCockpitLayout,
+  flattenSegmentGroups,
+  segmentsWithColor,
+  type Segment2D,
+  strokeSegments,
+} from "./frame-geometry";
+
+const L = {
+  amber: "#FFB000",
+  // leftMainWindowCol: "#00FFFF", // cyan
+  // leftRightBottomWindowCol: "#0000FF", // blue
+  // leftRightTopWindowCol: "#FFFF00", // yellow
+  // leftFrameSegInsideCol: "#FFFFFF", // red
+} as const;
+
+export function leftFrameSegmentGroups(
+  layout: CockpitLayout,
+): Record<string, Segment2D[]> {
+  const { left, right, top, bottom, w, h } = layout;
+
+  return {
+    leftMainWindow: segmentsWithColor(L.amber, [
+      {
+        x0: right,
+        y0: top + h(0.1),
+        x1: left + w(0.5),
+        y1: top + h(0.05),
+      },
+      {
+        x0: right - w(0.185),
+        y0: bottom - h(0.23),
+        x1: left + w(0.25),
+        y1: bottom - h(0.3),
+      },
+      {
+        x0: left + w(0.25),
+        y0: bottom - h(0.3),
+        x1: left + w(0.2),
+        y1: top + h(0.25),
+      },
+      {
+        x0: right,
+        y0: top + h(0.37),
+        x1: right - w(0.185),
+        y1: bottom - h(0.23),
+      },
+      {
+        x0: left + w(0.5),
+        y0: top + h(0.05),
+        x1: left + w(0.2),
+        y1: top + h(0.25),
+      },
+    ]),
+    leftRightBottomWindow: segmentsWithColor(L.amber, [
+      {
+        x0: right - w(0.14),
+        y0: bottom - h(0.29),
+        x1: right - w(0.1),
+        y1: bottom - h(0.11),
+      },
+      {
+        x0: right - w(0.1),
+        y0: bottom - h(0.11),
+        x1: right,
+        y1: bottom - h(0.125),
+      },
+      {
+        x0: right,
+        y0: top + h(0.4),
+        x1: right - w(0.14),
+        y1: bottom - h(0.29),
+      },
+    ]),
+    leftRightTopWindow: segmentsWithColor(L.amber, [
+      {
+        x0: right,
+        y0: top + h(0.08),
+        x1: left + w(0.55),
+        y1: top + h(0.035),
+      },
+      {
+        x0: left + w(0.55),
+        y0: top + h(0.035),
+        x1: left + w(0.59),
+        y1: top,
+      },
+    ]),
+    leftFrameSegInside: segmentsWithColor(L.amber, [
+      {
+        x0: left + w(0.242),
+        y0: bottom - h(0.275),
+        x1: right - w(0.14),
+        y1: bottom - h(0.2),
+      },
+      {
+        x0: left + w(0.19),
+        y0: top + h(0.24),
+        x1: left + w(0.242),
+        y1: bottom - h(0.275),
+      },
+      {
+        x0: right - w(0.46),
+        y0: top,
+        x1: left + w(0.19),
+        y1: top + h(0.24),
+      },
+      {
+        x0: right - w(0.14),
+        y0: bottom - h(0.2),
+        x1: right - w(0.115),
+        y1: bottom - h(0.09),
+      },
+      {
+        x0: right - w(0.115),
+        y0: bottom - h(0.09),
+        x1: right,
+        y1: bottom - h(0.11),
+      },
+    ]),
+  };
+}
+
+export function leftFrameSegments(layout: CockpitLayout): Segment2D[] {
+  return flattenSegmentGroups(leftFrameSegmentGroups(layout));
+}
+
 export function drawFrameLeft(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -5,109 +133,6 @@ export function drawFrameLeft(
   insetX: number,
   insetY: number,
 ): void {
-  // TODO: draw left ship frame
-  const left = insetX;
-  const right = width - insetX;
-  const top = insetY;
-  const bottom = height - insetY;
-
-  const w = (f: number) => width * f;
-  const h = (f: number) => height * f;
-
-  //top
-  ctx.beginPath();
-  ctx.moveTo(right, top + h(0.1));
-  ctx.lineTo(left + w(0.5), top + h(0.05));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(right, top + h(0.08));
-  ctx.lineTo(left + w(0.55), top + h(0.035));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(left + w(0.55), top + h(0.035));
-  ctx.lineTo(left + w(0.59), top);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(left + w(0.5), top + h(0.05));
-  ctx.lineTo(left + w(0.2), top + h(0.25));
-  ctx.stroke();
-
-  // middle right
-  ctx.beginPath();
-  ctx.moveTo(right, top + h(0.37));
-  ctx.lineTo(right - w(0.185), bottom - h(0.23));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(right, top + h(0.4));
-  ctx.lineTo(right - w(0.14), bottom - h(0.29));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(right - w(0.14), bottom - h(0.29));
-  ctx.lineTo(right - w(0.1), bottom - h(0.11));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(right - w(0.1), bottom - h(0.11));
-  ctx.lineTo(right, bottom - h(0.125));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(right - w(0.46), top);
-  ctx.lineTo(left + w(0.19), top + h(0.24));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(right - w(0.14), bottom - h(0.2));
-  ctx.lineTo(right - w(0.115), bottom - h(0.09));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(right - w(0.115), bottom - h(0.09));
-  ctx.lineTo(right, bottom - h(0.11));
-  ctx.stroke();
-  // middle left
-  ctx.beginPath();
-  ctx.moveTo(left + w(0.25), bottom - h(0.3));
-  ctx.lineTo(left + w(0.2), top + h(0.25));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(left + w(0.19), top + h(0.24));
-  ctx.lineTo(left + w(0.242), bottom - h(0.275));
-  ctx.stroke();
-
-  //bottom
-  ctx.beginPath();
-  ctx.moveTo(right - w(0.185), bottom - h(0.23));
-  ctx.lineTo(left + w(0.25), bottom - h(0.3));
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(left + w(0.242), bottom - h(0.275));
-  ctx.lineTo(right - w(0.14), bottom - h(0.2));
-  ctx.stroke();
+  const layout = createCockpitLayout(width, height, insetX, insetY);
+  strokeSegments(ctx, leftFrameSegments(layout));
 }
-
-// // top left trapezoid c
-// ctx.beginPath();
-// ctx.moveTo(left + w(0.06), top + h(0.21));
-// ctx.lineTo(left + w(0.055), top + h(0.27));
-// ctx.stroke();
-// // top left trapezoid d
-// ctx.beginPath();
-// ctx.moveTo(left + w(0.06), top + h(0.21));
-// ctx.lineTo(left, top + h(0.13));
-// ctx.stroke();
-// // top left trapezoid b
-// ctx.beginPath();
-// ctx.moveTo(left + w(0.055), top + h(0.27));
-// ctx.lineTo(left, top + h(0.305));
-// ctx.stroke();
-// // top right trapezoid c
-// ctx.beginPath();
-// ctx.moveTo(right - w(0.06), top + h(0.21));
-// ctx.lineTo(right - w(0.055), top + h(0.27));
-// ctx.stroke();
-// // top right trapezoid d
-// ctx.beginPath();
-// ctx.moveTo(right - w(0.06), top + h(0.21));
-// ctx.lineTo(right, top + h(0.13));
-// ctx.stroke();
-// // top right trapezoid b
-// ctx.beginPath();
-// ctx.moveTo(right - w(0.055), top + h(0.27));
-// ctx.lineTo(right,

@@ -1,4 +1,3 @@
-/** Cube wireframe: 8 vertices, 12 edges. Vertices at ±0.5 on each axis. */
 // prettier-ignore
 const CUBE_VERTICES = new Float32Array([
   -0.5, -0.5, -0.5, // 0
