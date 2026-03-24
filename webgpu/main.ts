@@ -2,9 +2,15 @@ import { mat4 } from "wgpu-matrix";
 import { quitIfWebGPUNotAvailableOrMissingFeatures } from "./utils";
 import { createWireframePipeline } from "./renderer";
 import { createCubeWireframe } from "./wireframe";
-import { createProjection, createView } from "./camera";
+import { createProjection, createViewFromYaw } from "./camera";
 
 const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+
+/** Yaw angles (radians) for view snap positions. Design: Forward 0°, Left -65°, Right +65°. */
+const YAW_FORWARD = 0;
+const YAW_LEFT = (-65 * Math.PI) / 180;
+const YAW_RIGHT = (65 * Math.PI) / 180;
+const SNAP_DURATION_MS = 200;
 
 async function init() {
   const adapter = await navigator.gpu?.requestAdapter({
@@ -60,6 +66,28 @@ async function init() {
   let rotationAngle = 0;
   const rotationSpeed = (20 * Math.PI) / 180;
 
+  let targetYaw = YAW_FORWARD;
+  let currentYaw = YAW_FORWARD;
+  let lastFrameTime = performance.now();
+
+  window.addEventListener("keydown", (e) => {
+    if (!e.ctrlKey) return;
+    switch (e.key) {
+      case "ArrowUp":
+        targetYaw = YAW_FORWARD;
+        e.preventDefault();
+        break;
+      case "ArrowLeft":
+        targetYaw = YAW_LEFT;
+        e.preventDefault();
+        break;
+      case "ArrowRight":
+        targetYaw = YAW_RIGHT;
+        e.preventDefault();
+        break;
+    }
+  });
+
   function frame() {
     if (document.hidden) {
       setTimeout(() => requestAnimationFrame(frame), 500);
@@ -72,15 +100,20 @@ async function init() {
       return;
     }
 
-    rotationAngle += rotationSpeed / 60;
+    const now = performance.now();
+    const deltaTime = (now - lastFrameTime) / 1000;
+    lastFrameTime = now;
+
+    const snapFactor = Math.min(1, deltaTime / (SNAP_DURATION_MS / 1000));
+    currentYaw += (targetYaw - currentYaw) * snapFactor;
+
+    rotationAngle += rotationSpeed * deltaTime;
 
     const aspect = width / height;
     const fov = (60 * Math.PI) / 180;
     const projection = createProjection(fov, aspect, 0.1, 1000);
 
-    const eye: [number, number, number] = [0, 0, 0];
-    const target: [number, number, number] = [0, 0, -5];
-    const view = createView(eye, target);
+    const view = createViewFromYaw(currentYaw);
 
     const translation = mat4.translation([0, 0, -5]);
     const rotation = mat4.rotationY(rotationAngle);
