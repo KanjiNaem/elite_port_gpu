@@ -2,6 +2,7 @@ import { mat4 } from "wgpu-matrix";
 import { quitIfWebGPUNotAvailableOrMissingFeatures } from "./utils";
 import { createWireframePipeline } from "./renderer";
 import { createCubeWireframe } from "./cube";
+import { createSphereWireframe } from "./sphere";
 import {
   createProjection,
   createViewFromYaw,
@@ -85,18 +86,44 @@ async function init() {
   new ResizeObserver(resizeCanvas).observe(canvas);
   window.addEventListener("resize", resizeCanvas);
 
-  const { pipeline, mvpBuffer, colorBuffer, bindGroup } =
-    createWireframePipeline(device, presentationFormat);
+  const { pipeline, mvpBuffers, colorBuffers, bindGroups } =
+    createWireframePipeline(device, presentationFormat, 5);
 
   const cube = createCubeWireframe(device);
+  const sphere = createSphereWireframe(device);
 
-  const lineColor = new Float32Array([
+  const cubeColor = new Float32Array([
     1,
     0,
     0,
-    0,
+    1,
   ]);
-  device.queue.writeBuffer(colorBuffer, 0, lineColor);
+  const ballColors = [
+    new Float32Array([
+      1,
+      0.55,
+      0.1,
+      1,
+    ]), // orbit — orange
+    new Float32Array([
+      0.2,
+      1,
+      0.45,
+      1,
+    ]), // oscillate — green
+    new Float32Array([
+      0.45,
+      0.65,
+      1,
+      1,
+    ]), // Lissajous — blue
+    new Float32Array([
+      1,
+      0.35,
+      0.85,
+      1,
+    ]), // bounce / drift — magenta
+  ];
 
   let rotationAngle = 0;
   const rotationSpeed = (20 * Math.PI) / 180;
@@ -227,28 +254,90 @@ async function init() {
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
     if (!isDocked) {
-      const translation = mat4.translation([
+      const t = now / 1000;
+
+      passEncoder.setPipeline(pipeline);
+
+      const cubeTranslation = mat4.translation([
         0,
         0,
         -20,
       ]);
-      const rotation = mat4.rotationY(rotationAngle);
-      const model = mat4.multiply(translation, rotation);
-
-      const mvp = mat4.multiply(projection, mat4.multiply(view, model));
+      const cubeRotation = mat4.rotationY(rotationAngle);
+      const cubeModel = mat4.multiply(cubeTranslation, cubeRotation);
+      const cubeMvp = mat4.multiply(projection, mat4.multiply(view, cubeModel));
+      device.queue.writeBuffer(colorBuffers[0]!, 0, cubeColor);
       device.queue.writeBuffer(
-        mvpBuffer,
+        mvpBuffers[0]!,
         0,
-        mvp.buffer,
-        mvp.byteOffset,
-        mvp.byteLength,
+        cubeMvp.buffer,
+        cubeMvp.byteOffset,
+        cubeMvp.byteLength,
       );
-
-      passEncoder.setPipeline(pipeline);
-      passEncoder.setBindGroup(0, bindGroup);
+      passEncoder.setBindGroup(0, bindGroups[0]!);
       passEncoder.setVertexBuffer(0, cube.vertexBuffer);
       passEncoder.setIndexBuffer(cube.indexBuffer, "uint32");
       passEncoder.drawIndexed(cube.indexCount);
+
+      // 4 wireframe spheres
+      const orbitR = 5.5;
+      const ballPositions: [number, number, number][] = [
+        // horizontal orbit around a point
+        [
+          orbitR * Math.cos(t * 0.7),
+          0,
+          -20 + orbitR * Math.sin(t * 0.7),
+        ],
+        // linear-ish oscillation along X
+        [
+          7 * Math.sin(t * 0.55),
+          0.25,
+          -21.5,
+        ],
+        // lissajous style path
+        [
+          4 * Math.sin(t * 0.9 * 2),
+          2.5 * Math.sin(t * 0.9 * 3),
+          -18.5,
+        ],
+        // vertical bounce with slow drift in XZ
+        [
+          3.5 * Math.sin(t * 0.12),
+          1.8 * Math.sin(t * 1.4),
+          -22 + 3 * Math.cos(t * 0.25),
+        ],
+      ];
+
+      passEncoder.setVertexBuffer(0, sphere.vertexBuffer);
+      passEncoder.setIndexBuffer(sphere.indexBuffer, "uint32");
+
+      for (let i = 0; i < 4; i++) {
+        const [
+          bx,
+          by,
+          bz,
+        ] = ballPositions[i]!;
+        const ballModel = mat4.translation([
+          bx,
+          by,
+          bz,
+        ]);
+        const slot = i + 1;
+        const ballMvp = mat4.multiply(
+          projection,
+          mat4.multiply(view, ballModel),
+        );
+        device.queue.writeBuffer(colorBuffers[slot]!, 0, ballColors[i]!);
+        device.queue.writeBuffer(
+          mvpBuffers[slot]!,
+          0,
+          ballMvp.buffer,
+          ballMvp.byteOffset,
+          ballMvp.byteLength,
+        );
+        passEncoder.setBindGroup(0, bindGroups[slot]!);
+        passEncoder.drawIndexed(sphere.indexCount);
+      }
     }
 
     passEncoder.end();

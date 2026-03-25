@@ -75,7 +75,7 @@ export function strokeSegment(
   ctx.stroke();
 }
 
-/** Draw an ordered list of independent line segments (each is moveTo–lineTo–stroke). */
+// draw line segments
 export function strokeSegments(
   ctx: CanvasRenderingContext2D,
   segments: Segment2D[],
@@ -87,7 +87,7 @@ export function strokeSegments(
   }
 }
 
-/** Concatenate named groups in a stable order (object key order is insertion-ordered in modern engines). */
+// concatenate named groups
 export function flattenSegmentGroups(
   groups: Record<string, Segment2D[]>,
 ): Segment2D[] {
