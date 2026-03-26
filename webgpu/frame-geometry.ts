@@ -11,7 +11,6 @@ export type CockpitLayout = {
   h: (f: number) => number;
 };
 
-/** Pure geometry for the forward HUD radar ellipse (no canvas — see `radar-internals`). */
 export type RadarLayout = {
   ribY: number;
   margin: number;
@@ -32,6 +31,7 @@ export type Segment2D = {
   x1: number;
   y1: number;
   lineType?: "solid" | "dashed";
+  filled?: boolean;
   color?: string;
 };
 
@@ -41,6 +41,7 @@ export type CircleSegment2D = {
   radiusX: number;
   radiusY: number;
   lineType?: "solid" | "dashed";
+  filled?: boolean;
   color?: string;
 };
 
@@ -51,8 +52,14 @@ export function lineSegmentsWithColor(
   color: string,
   lineType: "solid" | "dashed",
   segments: Array<{ x0: number; y0: number; x1: number; y1: number }>,
+  filled?: boolean,
 ): Segment2D[] {
-  return segments.map((s) => ({ ...s, lineType, color }));
+  return segments.map((s) => ({
+    ...s,
+    lineType,
+    color,
+    ...(filled ? { filled: true as const } : {}),
+  }));
 }
 
 /** @deprecated Use `lineSegmentsWithColor` */
@@ -67,8 +74,14 @@ export function circleSegmentsWithColor(
     radiusX: number;
     radiusY: number;
   }>,
+  filled?: boolean,
 ): CircleSegment2D[] {
-  return segments.map((s) => ({ ...s, lineType, color }));
+  return segments.map((s) => ({
+    ...s,
+    lineType,
+    color,
+    ...(filled ? { filled: true as const } : {}),
+  }));
 }
 
 export function createCockpitLayout(
@@ -112,6 +125,20 @@ export function strokeSegments(
   segments: Segment2D[],
   defaultStrokeStyle: string = DEFAULT_FRAME_STROKE,
 ): void {
+  if (segments.length > 0 && segments.every((s) => s.filled)) {
+    const c = segments[0].color ?? defaultStrokeStyle;
+    ctx.fillStyle = c;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(segments[0].x0, segments[0].y0);
+    for (const s of segments) {
+      ctx.lineTo(s.x1, s.y1);
+    }
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+
   for (const s of segments) {
     ctx.strokeStyle = s.color ?? defaultStrokeStyle;
     if (s.lineType === "dashed") {
@@ -143,7 +170,12 @@ export function strokeCircleSegments(
     }
     ctx.beginPath();
     ctx.ellipse(s.x, s.y, s.radiusX, s.radiusY, 0, 0, Math.PI * 2);
-    ctx.stroke();
+    if (s.filled) {
+      ctx.fillStyle = s.color ?? defaultStrokeStyle;
+      ctx.fill();
+    } else {
+      ctx.stroke();
+    }
   }
 }
 

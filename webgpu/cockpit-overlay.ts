@@ -90,9 +90,18 @@ function drawRadarFrame(
 ): void {
   const { ctx, width, height, insetY } = params;
   const layout = computeRadarLayout(width, height, insetY);
-  const { circles, lines } = getRadarDrawData(layout);
+  const {
+    circles,
+    solidRedLines,
+    dashedRedLines,
+    dashedGreenLines,
+    playerTriangleAtCenter,
+  } = getRadarDrawData(layout);
   strokeCircleSegments(ctx, circles);
-  strokeSegments(ctx, lines);
+  strokeSegments(ctx, solidRedLines);
+  strokeSegments(ctx, dashedRedLines);
+  strokeSegments(ctx, dashedGreenLines);
+  strokeSegments(ctx, playerTriangleAtCenter);
   ctx.setLineDash([]);
   drawRadarContacts(ctx, layout, viewMatrix, radarContacts);
 }
