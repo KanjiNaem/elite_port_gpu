@@ -9,10 +9,12 @@ import {
   createViewFromYawPitch,
 } from "./camera";
 import { renderCockpitOverlay } from "./cockpit-overlay";
+import type { RadarContact } from "./radar-moving-parts";
 import {
   PLACEHOLDER_STARFIELD_ENABLED,
   createPlaceholderStarfield,
 } from "./placeholder-starfield";
+import { MOVING_SPHERES, sphereWorldPositionsAt } from "./moving-spheres";
 
 const canvas = document.querySelector("canvas") as HTMLCanvasElement;
 const cockpitOverlayCanvas = document.querySelector(
@@ -21,6 +23,13 @@ const cockpitOverlayCanvas = document.querySelector(
 const dockedOverlay = document.querySelector(
   "#docked-overlay",
 ) as HTMLDivElement;
+
+function rgbaFloatToCssHex(rgba: Float32Array): string {
+  const r = Math.round(rgba[0]! * 255);
+  const g = Math.round(rgba[1]! * 255);
+  const b = Math.round(rgba[2]! * 255);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`; // lol we ball
+}
 
 // yaw angles in radians for view snap/ distance-based projection keeps cube size constant
 const YAW_FORWARD = 0;
@@ -43,9 +52,7 @@ const MOUSE_SENSITIVITY = 0.003;
 // --- END DEBUG ---
 
 async function init() {
-  const adapter = await navigator.gpu?.requestAdapter({
-    featureLevel: "compatibility",
-  });
+  const adapter = await navigator.gpu?.requestAdapter();
   const device = quitIfWebGPUNotAvailableOrMissingFeatures(
     adapter,
     await adapter?.requestDevice(),
@@ -57,16 +64,47 @@ async function init() {
   }
   const context: GPUCanvasContext = contextOrNull;
 
-  function resizeCanvas() {
-    const devicePixelRatio = window.devicePixelRatio;
-    const displayWidth = window.innerWidth;
-    const displayHeight = window.innerHeight;
-    const width = Math.max(1, Math.floor(displayWidth * devicePixelRatio));
-    const height = Math.max(1, Math.floor(displayHeight * devicePixelRatio));
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+  const maxTextureDim = device.limits.maxTextureDimension2D;
+  const MAX_CANVAS_PIXELS = 3840 * 2160;
+  const MAX_CANVAS_DPR = 2;
 
-    if (canvas.width !== width || canvas.height !== height) {
+  function computeBackingStoreSize(): { width: number; height: number } {
+    const cssW = Math.max(1, Math.floor(window.innerWidth));
+    const cssH = Math.max(1, Math.floor(window.innerHeight));
+    const rawDpr = window.devicePixelRatio;
+    const dpr = Math.min(
+      Number.isFinite(rawDpr) && rawDpr > 0 ? rawDpr : 1,
+      MAX_CANVAS_DPR,
+    );
+    let width = Math.max(1, Math.floor(cssW * dpr));
+    let height = Math.max(1, Math.floor(cssH * dpr));
+    width = Math.min(width, maxTextureDim);
+    height = Math.min(height, maxTextureDim);
+    let pixels = width * height;
+    if (pixels > MAX_CANVAS_PIXELS) {
+      const scale = Math.sqrt(MAX_CANVAS_PIXELS / pixels);
+      width = Math.max(1, Math.floor(width * scale));
+      height = Math.max(1, Math.floor(height * scale));
+      width = Math.min(width, maxTextureDim);
+      height = Math.min(height, maxTextureDim);
+    }
+    return { width, height };
+  }
+
+  // single place for canvas size and configure at start of frame before "getCurrentTexture" (--> doesnt crash when resizing due to race condition)
+  function syncCanvasBackingStore() {
+    const { width, height } = computeBackingStoreSize();
+    const webgpuSizeChanged =
+      canvas.width !== width || canvas.height !== height;
+    if (webgpuSizeChanged) {
       canvas.width = width;
       canvas.height = height;
+      context.configure({
+        device,
+        format: presentationFormat,
+        alphaMode: "opaque",
+      });
     }
     if (
       cockpitOverlayCanvas.width !== width ||
@@ -75,23 +113,13 @@ async function init() {
       cockpitOverlayCanvas.width = width;
       cockpitOverlayCanvas.height = height;
     }
-    return { width, height };
   }
 
-  resizeCanvas();
-  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+  syncCanvasBackingStore();
 
-  context.configure({
-    device,
-    format: presentationFormat,
-    alphaMode: "opaque",
-  });
-
-  new ResizeObserver(resizeCanvas).observe(canvas);
-  window.addEventListener("resize", resizeCanvas);
-
+  const sphereSlotCount = MOVING_SPHERES.length;
   const { pipeline, mvpBuffers, colorBuffers, bindGroups } =
-    createWireframePipeline(device, presentationFormat, 5);
+    createWireframePipeline(device, presentationFormat, 1 + sphereSlotCount);
 
   const starfield = PLACEHOLDER_STARFIELD_ENABLED
     ? createPlaceholderStarfield(device, presentationFormat)
@@ -115,32 +143,6 @@ async function init() {
     0,
     1,
   ]);
-  const ballColors = [
-    new Float32Array([
-      1,
-      0.55,
-      0.1,
-      1,
-    ]), // orbit — orange
-    new Float32Array([
-      0.2,
-      1,
-      0.45,
-      1,
-    ]), // oscillate — green
-    new Float32Array([
-      0.45,
-      0.65,
-      1,
-      1,
-    ]), // Lissajous — blue
-    new Float32Array([
-      1,
-      0.35,
-      0.85,
-      1,
-    ]), // bounce / drift — magenta
-  ];
 
   let rotationAngle = 0;
   const rotationSpeed = (20 * Math.PI) / 180;
@@ -222,7 +224,10 @@ async function init() {
       return;
     }
 
-    const { width, height } = resizeCanvas();
+    syncCanvasBackingStore();
+
+    const width = canvas.width;
+    const height = canvas.height;
     if (width === 0 || height === 0) {
       requestAnimationFrame(frame);
       return;
@@ -249,6 +254,26 @@ async function init() {
       ? createViewFromYawPitch(currentYaw + debugYaw, debugPitch)
       : createViewFromYaw(currentYaw);
 
+    const t = now / 1000;
+    const spherePositions = sphereWorldPositionsAt(t);
+
+    const radarContacts: RadarContact[] = isDocked
+      ? []
+      : [
+          {
+            world: [
+              0,
+              0,
+              -20,
+            ],
+            color: rgbaFloatToCssHex(cubeColor),
+          },
+          ...spherePositions.map((world, i) => ({
+            world,
+            color: rgbaFloatToCssHex(MOVING_SPHERES[i]!.color),
+          })),
+        ];
+
     const view_ = context.getCurrentTexture().createView();
     const commandEncoder = device.createCommandEncoder();
 
@@ -271,8 +296,6 @@ async function init() {
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
     if (!isDocked) {
-      const t = now / 1000;
-
       if (starfield) {
         const skyMvp = mat4.multiply(projection, view);
         device.queue.writeBuffer(
@@ -311,44 +334,15 @@ async function init() {
       passEncoder.setIndexBuffer(cube.indexBuffer, "uint32");
       passEncoder.drawIndexed(cube.indexCount);
 
-      // 4 wireframe spheres
-      const orbitR = 5.5;
-      const ballPositions: [number, number, number][] = [
-        // horizontal orbit around a point
-        [
-          orbitR * Math.cos(t * 0.7),
-          0,
-          -20 + orbitR * Math.sin(t * 0.7),
-        ],
-        // linear-ish oscillation along X
-        [
-          7 * Math.sin(t * 0.55),
-          0.25,
-          -21.5,
-        ],
-        // lissajous style path
-        [
-          4 * Math.sin(t * 0.9 * 2),
-          2.5 * Math.sin(t * 0.9 * 3),
-          -18.5,
-        ],
-        // vertical bounce with slow drift in XZ
-        [
-          3.5 * Math.sin(t * 0.12),
-          1.8 * Math.sin(t * 1.4),
-          -22 + 3 * Math.cos(t * 0.25),
-        ],
-      ];
-
       passEncoder.setVertexBuffer(0, sphere.vertexBuffer);
       passEncoder.setIndexBuffer(sphere.indexBuffer, "uint32");
 
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < sphereSlotCount; i++) {
         const [
           bx,
           by,
           bz,
-        ] = ballPositions[i]!;
+        ] = spherePositions[i]!;
         const ballModel = mat4.translation([
           bx,
           by,
@@ -359,7 +353,14 @@ async function init() {
           projection,
           mat4.multiply(view, ballModel),
         );
-        device.queue.writeBuffer(colorBuffers[slot]!, 0, ballColors[i]!);
+        const sc = MOVING_SPHERES[i]!.color;
+        device.queue.writeBuffer(
+          colorBuffers[slot]!,
+          0,
+          sc.buffer,
+          sc.byteOffset,
+          sc.byteLength,
+        );
         device.queue.writeBuffer(
           mvpBuffers[slot]!,
           0,
@@ -380,7 +381,15 @@ async function init() {
 
     const overlayCtx = cockpitOverlayCanvas.getContext("2d");
     if (overlayCtx) {
-      renderCockpitOverlay(overlayCtx, width, height, currentYaw, isDocked);
+      renderCockpitOverlay(
+        overlayCtx,
+        width,
+        height,
+        currentYaw,
+        isDocked,
+        view,
+        radarContacts,
+      );
     }
 
     requestAnimationFrame(frame);

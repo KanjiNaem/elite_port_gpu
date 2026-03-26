@@ -1,7 +1,3 @@
-/**
- * Wireframe UV sphere (latitude rings + meridians), same vertex layout as the cube wireframe.
- */
-
 export interface WireframeSphere {
   vertexBuffer: GPUBuffer;
   indexBuffer: GPUBuffer;
@@ -21,12 +17,6 @@ function sphericalToCartesian(
   out[o + 2] = r * sinPhi * Math.sin(theta);
 }
 
-/**
- * @param radius sphere radius
- * @param latRings number of horizontal circles (excluding poles)
- * @param lonSegments meridians / segments per latitude circle
- * @param meridianSteps edges along each meridian from north to south pole
- */
 export function buildSphereWireframeData(
   radius: number,
   latRings: number,

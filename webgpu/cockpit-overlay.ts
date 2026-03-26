@@ -7,7 +7,12 @@ import { strokeCircleSegments, strokeSegments } from "./frame-geometry";
 import { drawFrameForward } from "./frame-forward";
 import { drawFrameLeft } from "./frame-left";
 import { drawFrameRight } from "./frame-right";
-import { computeRadarLayout, getRadarDrawData } from "./radar-internals";
+import type { RadarContact } from "./radar-moving-parts";
+import {
+  computeRadarLayout,
+  drawRadarContacts,
+  getRadarDrawData,
+} from "./radar-internals";
 
 const COLORS = {
   AMBER: "#FFB000",
@@ -78,13 +83,18 @@ function drawRightFrame(params: FrameParams): void {
 
 // ─── UI elements (radar, hints) ────────────────────────────────────────────
 
-function drawRadarFrame(params: FrameParams): void {
+function drawRadarFrame(
+  params: FrameParams,
+  viewMatrix: Float32Array,
+  radarContacts: RadarContact[],
+): void {
   const { ctx, width, height, insetY } = params;
   const layout = computeRadarLayout(width, height, insetY);
   const { circles, lines } = getRadarDrawData(layout);
   strokeCircleSegments(ctx, circles);
   strokeSegments(ctx, lines);
   ctx.setLineDash([]);
+  drawRadarContacts(ctx, layout, viewMatrix, radarContacts);
 }
 
 function drawDockedHints(
@@ -123,6 +133,8 @@ export function renderCockpitOverlay(
   height: number,
   currentYaw: number,
   isDocked: boolean,
+  viewMatrix: Float32Array,
+  radarContacts: RadarContact[] = [],
 ): void {
   ctx.clearRect(0, 0, width, height);
 
@@ -167,7 +179,7 @@ export function renderCockpitOverlay(
   switch (state.kind) {
     case "forward":
       drawForwardFrame(params);
-      drawRadarFrame(params);
+      drawRadarFrame(params, viewMatrix, radarContacts);
       if (isDocked) drawDockedHints(ctx, width, height);
       return;
 
@@ -187,7 +199,7 @@ export function renderCockpitOverlay(
       ctx.save();
       ctx.translate(to === "right" ? -slideAmount * t : slideAmount * t, 0);
       drawForwardFrame(params);
-      drawRadarFrame(params);
+      drawRadarFrame(params, viewMatrix, radarContacts);
       if (isDocked) drawDockedHints(ctx, width, height);
       ctx.restore();
 

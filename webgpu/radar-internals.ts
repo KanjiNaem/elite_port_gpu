@@ -6,15 +6,14 @@ import {
   type RadarLayout,
   type Segment2D,
 } from "./frame-geometry";
+import { worldToRadarCanvas, type RadarContact } from "./radar-moving-parts";
 
 const RADAR_MARGIN_LINE = 2;
 
-const RADAR_COLORS = {
-  AMBER: "#FFB000",
-  RED: "#FF0000",
-  DARK_RED: "#800000",
-  GREEN: "#00FF00",
-} as const;
+const RADAR_FRAME_RED = "#FF0000";
+
+const RADAR_CONTACT_MARKER_PX = 3.5;
+const RADAR_CONTACT_LINE_WIDTH = 1;
 
 export function computeRadarLayout(
   width: number,
@@ -51,7 +50,7 @@ export function getRadarDrawData(layout: RadarLayout): {
 } {
   const { centerX, centerY, radiusX, radiusY } = layout;
 
-  const circles = circleSegmentsWithColor(RADAR_COLORS.RED, "solid", [
+  const circles = circleSegmentsWithColor(RADAR_FRAME_RED, "solid", [
     {
       x: centerX,
       y: centerY,
@@ -60,61 +59,52 @@ export function getRadarDrawData(layout: RadarLayout): {
     },
   ]);
 
-  const onEllipse = (theta: number) => ({
-    x: centerX + radiusX * Math.cos(theta),
-    y: centerY + radiusY * Math.sin(theta),
-  });
-
-  const a = (t: number) => onEllipse(Math.PI * t);
-  const b = (t: number) => onEllipse(Math.PI * t);
-
-  const lines: Segment2D[] = [
-    ...lineSegmentsWithColor(RADAR_COLORS.RED, "solid", [
-      {
-        x0: centerX - radiusX,
-        y0: centerY,
-        x1: centerX + radiusX,
-        y1: centerY,
-      },
-      {
-        x0: centerX,
-        y0: centerY - radiusY,
-        x1: centerX,
-        y1: centerY + radiusY,
-      },
-    ]),
-    ...lineSegmentsWithColor(RADAR_COLORS.DARK_RED, "dashed", [
-      // horizontal
-      {
-        x0: a(0.75).x,
-        y0: a(1.76).y,
-        x1: b(1.75).x,
-        y1: b(1.76).y,
-      },
-      {
-        x0: a(0.79).x,
-        y0: a(0.8).y,
-        x1: b(1.79).x,
-        y1: b(0.8).y,
-      },
-      // vertical
-      {
-        x0: a(1.75).x,
-        y0: a(0.75).y,
-        x1: b(1.6).x,
-        y1: b(1.6).y,
-      },
-      {
-        x0: a(0.75).x,
-        y0: a(0.75).y,
-        x1: b(0.6).x,
-        y1: b(1.6).y,
-      },
-    ]),
-  ];
+  const lines: Segment2D[] = lineSegmentsWithColor(RADAR_FRAME_RED, "solid", [
+    {
+      x0: centerX - radiusX,
+      y0: centerY,
+      x1: centerX + radiusX,
+      y1: centerY,
+    },
+    {
+      x0: centerX,
+      y0: centerY - radiusY,
+      x1: centerX,
+      y1: centerY + radiusY,
+    },
+  ]);
 
   return {
     circles,
     lines,
   };
+}
+
+export function drawRadarContacts(
+  ctx: CanvasRenderingContext2D,
+  layout: RadarLayout,
+  view: Float32Array,
+  contacts: RadarContact[],
+): void {
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.lineWidth = RADAR_CONTACT_LINE_WIDTH;
+  ctx.lineCap = "round";
+  for (const c of contacts) {
+    const proj = worldToRadarCanvas(layout, view, c.world);
+    ctx.strokeStyle = c.color;
+    ctx.fillStyle = c.color;
+    ctx.beginPath();
+    ctx.moveTo(proj.baseX, proj.baseY);
+    ctx.lineTo(proj.dotX, proj.dotY);
+    ctx.stroke();
+    const half = RADAR_CONTACT_MARKER_PX / 2;
+    ctx.fillRect(
+      proj.dotX - half,
+      proj.dotY - half,
+      RADAR_CONTACT_MARKER_PX,
+      RADAR_CONTACT_MARKER_PX,
+    );
+  }
+  ctx.restore();
 }
