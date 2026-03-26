@@ -1,7 +1,3 @@
-/**
- * Shared cockpit frame layout (proportional w/h) and 2D segment drawing.
- */
-
 export type CockpitLayout = {
   width: number;
   height: number;
@@ -15,24 +11,64 @@ export type CockpitLayout = {
   h: (f: number) => number;
 };
 
+/** Pure geometry for the forward HUD radar ellipse (no canvas — see `radar-internals`). */
+export type RadarLayout = {
+  ribY: number;
+  margin: number;
+  top: number;
+  usableBottom: number;
+  radarHeight: number;
+  centerX: number;
+  centerY: number;
+  radiusX: number;
+  radiusY: number;
+  width: number;
+  height: number;
+};
+
 export type Segment2D = {
   x0: number;
   y0: number;
   x1: number;
   y1: number;
-  /** When set, this segment is stroked in this color; otherwise see `DEFAULT_FRAME_STROKE`. */
+  lineType?: "solid" | "dashed";
   color?: string;
 };
 
-/** DESIGN §1.4 cockpit UI; used when a segment omits `color`. */
+export type CircleSegment2D = {
+  x: number;
+  y: number;
+  radiusX: number;
+  radiusY: number;
+  lineType?: "solid" | "dashed";
+  color?: string;
+};
+
+export const dash = Math.max(3, 4); // [dash len, gap len]
 export const DEFAULT_FRAME_STROKE = "#FFB000";
 
-/** Attach the same `color` to every segment in a group (e.g. `lowerRib`). */
-export function segmentsWithColor(
+export function lineSegmentsWithColor(
   color: string,
+  lineType: "solid" | "dashed",
   segments: Array<{ x0: number; y0: number; x1: number; y1: number }>,
 ): Segment2D[] {
-  return segments.map((s) => ({ ...s, color }));
+  return segments.map((s) => ({ ...s, lineType, color }));
+}
+
+/** @deprecated Use `lineSegmentsWithColor` */
+export const segmentsWithColor = lineSegmentsWithColor;
+
+export function circleSegmentsWithColor(
+  color: string,
+  lineType: "solid" | "dashed",
+  segments: Array<{
+    x: number;
+    y: number;
+    radiusX: number;
+    radiusY: number;
+  }>,
+): CircleSegment2D[] {
+  return segments.map((s) => ({ ...s, lineType, color }));
 }
 
 export function createCockpitLayout(
@@ -61,10 +97,6 @@ export function createCockpitLayout(
   };
 }
 
-export function seg(x0: number, y0: number, x1: number, y1: number): Segment2D {
-  return { x0, y0, x1, y1 };
-}
-
 export function strokeSegment(
   ctx: CanvasRenderingContext2D,
   s: Segment2D,
@@ -75,7 +107,6 @@ export function strokeSegment(
   ctx.stroke();
 }
 
-// draw line segments
 export function strokeSegments(
   ctx: CanvasRenderingContext2D,
   segments: Segment2D[],
@@ -83,7 +114,36 @@ export function strokeSegments(
 ): void {
   for (const s of segments) {
     ctx.strokeStyle = s.color ?? defaultStrokeStyle;
+    if (s.lineType === "dashed") {
+      ctx.setLineDash([
+        dash,
+        dash,
+      ]);
+    } else {
+      ctx.setLineDash([]);
+    }
     strokeSegment(ctx, s);
+  }
+}
+
+export function strokeCircleSegments(
+  ctx: CanvasRenderingContext2D,
+  segments: CircleSegment2D[],
+  defaultStrokeStyle: string = DEFAULT_FRAME_STROKE,
+): void {
+  for (const s of segments) {
+    ctx.strokeStyle = s.color ?? defaultStrokeStyle;
+    if (s.lineType === "dashed") {
+      ctx.setLineDash([
+        dash,
+        dash,
+      ]);
+    } else {
+      ctx.setLineDash([]);
+    }
+    ctx.beginPath();
+    ctx.ellipse(s.x, s.y, s.radiusX, s.radiusY, 0, 0, Math.PI * 2);
+    ctx.stroke();
   }
 }
 

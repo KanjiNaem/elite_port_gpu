@@ -2,7 +2,7 @@ import {
   type CockpitLayout,
   createCockpitLayout,
   flattenSegmentGroups,
-  segmentsWithColor,
+  lineSegmentsWithColor,
   type Segment2D,
   strokeSegments,
 } from "./frame-geometry";
@@ -21,7 +21,7 @@ export function rightFrameSegmentGroups(
   const { left, right, top, bottom, w, h } = layout;
 
   return {
-    rightMainWindow: segmentsWithColor(R.amber, [
+    rightMainWindow: lineSegmentsWithColor(R.amber, "solid", [
       {
         x0: left,
         y0: top + h(0.1),
@@ -53,7 +53,7 @@ export function rightFrameSegmentGroups(
         y1: top + h(0.25),
       },
     ]),
-    rightLeftBottomWindow: segmentsWithColor(R.amber, [
+    rightLeftBottomWindow: lineSegmentsWithColor(R.amber, "solid", [
       {
         x0: left + w(0.14),
         y0: bottom - h(0.29),
@@ -73,7 +73,7 @@ export function rightFrameSegmentGroups(
         y1: bottom - h(0.29),
       },
     ]),
-    rightLeftTopWindow: segmentsWithColor(R.amber, [
+    rightLeftTopWindow: lineSegmentsWithColor(R.amber, "solid", [
       {
         x0: left,
         y0: top + h(0.08),
@@ -87,7 +87,7 @@ export function rightFrameSegmentGroups(
         y1: top,
       },
     ]),
-    rightFrameSegInside: segmentsWithColor(R.amber, [
+    rightFrameSegInside: lineSegmentsWithColor(R.amber, "solid", [
       {
         x0: right - w(0.242),
         y0: bottom - h(0.275),

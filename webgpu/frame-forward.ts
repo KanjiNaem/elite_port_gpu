@@ -2,7 +2,7 @@ import {
   type CockpitLayout,
   createCockpitLayout,
   flattenSegmentGroups,
-  segmentsWithColor,
+  lineSegmentsWithColor,
   type Segment2D,
   strokeSegments,
 } from "./frame-geometry";
@@ -32,7 +32,7 @@ export function forwardFrameSegmentGroups(
   const { left, right, top, bottom, w, h } = layout;
 
   return {
-    centerMainWindow: segmentsWithColor(FWD.amber, [
+    centerMainWindow: lineSegmentsWithColor(FWD.amber, "solid", [
       {
         x0: right - w(0.26),
         y0: bottom - h(0.193),
@@ -70,7 +70,7 @@ export function forwardFrameSegmentGroups(
         y1: bottom - h(0.194),
       },
     ]),
-    centerRightMiddleWindow: segmentsWithColor(FWD.amber, [
+    centerRightMiddleWindow: lineSegmentsWithColor(FWD.amber, "solid", [
       {
         x0: right - w(0.25),
         y0: bottom - h(0.193),
@@ -96,7 +96,7 @@ export function forwardFrameSegmentGroups(
         y1: bottom - h(0.148),
       },
     ]),
-    centerLeftMiddleWindow: segmentsWithColor(FWD.amber, [
+    centerLeftMiddleWindow: lineSegmentsWithColor(FWD.amber, "solid", [
       {
         x0: left,
         y0: bottom - h(0.148),
@@ -122,7 +122,7 @@ export function forwardFrameSegmentGroups(
         y1: top + h(0.33),
       },
     ]),
-    centerMiddleTopWindow: segmentsWithColor(FWD.amber, [
+    centerMiddleTopWindow: lineSegmentsWithColor(FWD.amber, "solid", [
       {
         x0: left + w(0.27),
         y0: top + h(0.215),
@@ -154,7 +154,7 @@ export function forwardFrameSegmentGroups(
         y1: top + h(0.1),
       },
     ]),
-    centerRightTopWindow: segmentsWithColor(FWD.amber, [
+    centerRightTopWindow: lineSegmentsWithColor(FWD.amber, "solid", [
       {
         x0: right - w(0.06),
         y0: top + h(0.21),
@@ -174,7 +174,7 @@ export function forwardFrameSegmentGroups(
         y1: top + h(0.305),
       },
     ]),
-    centerLeftTopWindow: segmentsWithColor(FWD.amber, [
+    centerLeftTopWindow: lineSegmentsWithColor(FWD.amber, "solid", [
       {
         x0: left + w(0.06),
         y0: top + h(0.21),
@@ -194,7 +194,7 @@ export function forwardFrameSegmentGroups(
         y1: top + h(0.305),
       },
     ]),
-    centerMiddleBottomInside: segmentsWithColor(FWD.amber, [
+    centerMiddleBottomInside: lineSegmentsWithColor(FWD.amber, "solid", [
       {
         x0: left,
         y0: bottom - h(0.139),

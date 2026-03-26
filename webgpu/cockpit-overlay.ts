@@ -3,12 +3,17 @@ import {
   cutoutLeftWindow,
   cutoutRightWindow,
 } from "./cockpit-scene-mask";
-import { drawFrameForward, getForwardFrameBottomRibY } from "./frame-forward";
+import { strokeCircleSegments, strokeSegments } from "./frame-geometry";
+import { drawFrameForward } from "./frame-forward";
 import { drawFrameLeft } from "./frame-left";
 import { drawFrameRight } from "./frame-right";
+import { computeRadarLayout, getRadarDrawData } from "./radar-internals";
 
-const AMBER = "#FFB000";
-const UI_BLUE = "#0055FF";
+const COLORS = {
+  AMBER: "#FFB000",
+  UI_BLUE: "#0055FF",
+};
+
 // fraction of width/ height inset for the wireframe (0 --> lines meet canvas edges)
 const FRAME_INSET = 0;
 const LINE_WIDTH = 2;
@@ -73,26 +78,13 @@ function drawRightFrame(params: FrameParams): void {
 
 // ─── UI elements (radar, hints) ────────────────────────────────────────────
 
-function drawRadarArea(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  insetY: number,
-): void {
-  const ribY = getForwardFrameBottomRibY(height, insetY);
-  const margin = Math.max(LINE_WIDTH, height * 0.004);
-  const top = ribY + margin;
-  const usableBottom = height - insetY;
-  const radarHeight = Math.max(usableBottom - top, 1);
-  const centerX = width / 2;
-  const centerY = top + radarHeight / 2;
-  const radiusX = (width * 0.27) / 2;
-  const radiusY = radarHeight / 3;
-
-  ctx.strokeStyle = AMBER;
-  ctx.beginPath();
-  ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
-  ctx.stroke();
+function drawRadarFrame(params: FrameParams): void {
+  const { ctx, width, height, insetY } = params;
+  const layout = computeRadarLayout(width, height, insetY);
+  const { circles, lines } = getRadarDrawData(layout);
+  strokeCircleSegments(ctx, circles);
+  strokeSegments(ctx, lines);
+  ctx.setLineDash([]);
 }
 
 function drawDockedHints(
@@ -102,7 +94,7 @@ function drawDockedHints(
 ): void {
   const fontSize = Math.min(24, Math.max(14, width * 0.03));
   ctx.font = `${fontSize}px monospace`;
-  ctx.fillStyle = UI_BLUE;
+  ctx.fillStyle = COLORS.UI_BLUE;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("take off: ctrl + e", width / 2, height / 2);
@@ -167,7 +159,7 @@ export function renderCockpitOverlay(
     }
   }
 
-  ctx.strokeStyle = AMBER;
+  ctx.strokeStyle = COLORS.AMBER;
   ctx.lineWidth = LINE_WIDTH;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
@@ -175,7 +167,7 @@ export function renderCockpitOverlay(
   switch (state.kind) {
     case "forward":
       drawForwardFrame(params);
-      drawRadarArea(ctx, width, height, insetY);
+      drawRadarFrame(params);
       if (isDocked) drawDockedHints(ctx, width, height);
       return;
 
@@ -195,7 +187,7 @@ export function renderCockpitOverlay(
       ctx.save();
       ctx.translate(to === "right" ? -slideAmount * t : slideAmount * t, 0);
       drawForwardFrame(params);
-      drawRadarArea(ctx, width, height, insetY);
+      drawRadarFrame(params);
       if (isDocked) drawDockedHints(ctx, width, height);
       ctx.restore();
 

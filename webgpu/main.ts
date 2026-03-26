@@ -9,6 +9,10 @@ import {
   createViewFromYawPitch,
 } from "./camera";
 import { renderCockpitOverlay } from "./cockpit-overlay";
+import {
+  PLACEHOLDER_STARFIELD_ENABLED,
+  createPlaceholderStarfield,
+} from "./placeholder-starfield";
 
 const canvas = document.querySelector("canvas") as HTMLCanvasElement;
 const cockpitOverlayCanvas = document.querySelector(
@@ -88,6 +92,19 @@ async function init() {
 
   const { pipeline, mvpBuffers, colorBuffers, bindGroups } =
     createWireframePipeline(device, presentationFormat, 5);
+
+  const starfield = PLACEHOLDER_STARFIELD_ENABLED
+    ? createPlaceholderStarfield(device, presentationFormat)
+    : null;
+  const starfieldColor = new Float32Array([
+    0.55,
+    0.58,
+    0.72,
+    1,
+  ]);
+  if (starfield) {
+    device.queue.writeBuffer(starfield.colorBuffer, 0, starfieldColor);
+  }
 
   const cube = createCubeWireframe(device);
   const sphere = createSphereWireframe(device);
@@ -255,6 +272,21 @@ async function init() {
 
     if (!isDocked) {
       const t = now / 1000;
+
+      if (starfield) {
+        const skyMvp = mat4.multiply(projection, view);
+        device.queue.writeBuffer(
+          starfield.mvpBuffer,
+          0,
+          skyMvp.buffer,
+          skyMvp.byteOffset,
+          skyMvp.byteLength,
+        );
+        passEncoder.setPipeline(starfield.pipeline);
+        passEncoder.setBindGroup(0, starfield.bindGroup);
+        passEncoder.setVertexBuffer(0, starfield.vertexBuffer);
+        passEncoder.draw(starfield.vertexCount);
+      }
 
       passEncoder.setPipeline(pipeline);
 
