@@ -3,21 +3,26 @@ import starfieldFragWGSL from "../shaders/starfield.frag.wgsl?raw";
 
 export const PLACEHOLDER_STARFIELD_ENABLED = true;
 
-const STAR_COUNT = 720;
+const STAR_COUNT = 3200;
 const SKY_RADIUS = 420;
 
-function fibonacciSpherePoints(count: number, radius: number): Float32Array {
-  const out = new Float32Array(count * 3);
-  const golden = Math.PI * (3 - Math.sqrt(5));
+/** Uniform random on unit sphere (y-up), with mild shell thickness and per-star brightness. */
+function randomSphereStarPoints(count: number, baseRadius: number): Float32Array {
+  const out = new Float32Array(count * 4);
   for (let i = 0; i < count; i++) {
-    const y = 1 - (i / (count - 1)) * 2;
-    const r = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = golden * i;
-    const x = Math.cos(theta) * r;
-    const z = Math.sin(theta) * r;
-    out[i * 3] = x * radius;
-    out[i * 3 + 1] = y * radius;
-    out[i * 3 + 2] = z * radius;
+    const u = Math.random();
+    const v = Math.random();
+    const theta = 2 * Math.PI * u;
+    const phi = Math.acos(2 * v - 1);
+    const sinPhi = Math.sin(phi);
+    const x = sinPhi * Math.cos(theta);
+    const y = Math.cos(phi);
+    const z = sinPhi * Math.sin(theta);
+    const shell = baseRadius * (0.94 + Math.random() * 0.12);
+    out[i * 4] = x * shell;
+    out[i * 4 + 1] = y * shell;
+    out[i * 4 + 2] = z * shell;
+    out[i * 4 + 3] = 0.35 + Math.random() * 0.65;
   }
   return out;
 }
@@ -74,9 +79,10 @@ export function createPlaceholderStarfield(
       module: vertModule,
       buffers: [
         {
-          arrayStride: 12,
+          arrayStride: 16,
           attributes: [
             { format: "float32x3", offset: 0, shaderLocation: 0 },
+            { format: "float32", offset: 12, shaderLocation: 1 },
           ],
         },
       ],
@@ -100,7 +106,7 @@ export function createPlaceholderStarfield(
     ],
   });
 
-  const positions = fibonacciSpherePoints(STAR_COUNT, SKY_RADIUS);
+  const positions = randomSphereStarPoints(STAR_COUNT, SKY_RADIUS);
   const vertexBuffer = device.createBuffer({
     size: positions.byteLength,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
