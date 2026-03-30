@@ -7,8 +7,16 @@ export type RadarContact = {
   color: string;
 };
 
-export const RADAR_MAX_RANGE_XZ = 40;
-export const RADAR_MAX_RANGE_Y = 15;
+/**
+ * World units (camera-relative axes used in {@link worldToRadarCanvas}): a contact
+ * with |rel[0]| or |rel[2]| equal to this value sits on the radar ellipse border
+ * before clamping (pure +X / +Z in view space).
+ */
+export const RADAR_WORLD_RANGE = 200;
+
+export const RADAR_MAX_RANGE_XZ = RADAR_WORLD_RANGE;
+/** Stick height: same scale as horizontal plane so vertical offsets match range feel. */
+export const RADAR_MAX_RANGE_Y = RADAR_WORLD_RANGE;
 
 // ellipse interior clamp
 export function clampPointToEllipse(

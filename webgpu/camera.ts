@@ -11,8 +11,8 @@ export function createProjection(
 }
 
 export function createView(
-  eye: [number, number, number],
-  target: [number, number, number],
+  eye: readonly [number, number, number],
+  target: readonly [number, number, number],
 ): Float32Array {
   return mat4.lookAt(eye, target, [
     ...AXIS_Y,
@@ -56,4 +56,27 @@ export function createViewFromYawPitch(
     ],
     target,
   );
+}
+
+/** First-person / fly camera: eye in world space, yaw + pitch look direction (+Y up). */
+export function createFlyView(
+  eye: readonly [number, number, number],
+  yawRad: number,
+  pitchRad: number,
+): Float32Array {
+  const cosP = Math.cos(pitchRad);
+  const sinP = Math.sin(pitchRad);
+  const sinY = Math.sin(yawRad);
+  const cosY = Math.cos(yawRad);
+  const fwd: [number, number, number] = [
+    sinY * cosP,
+    sinP,
+    -cosY * cosP,
+  ];
+  const target: [number, number, number] = [
+    eye[0] + fwd[0],
+    eye[1] + fwd[1],
+    eye[2] + fwd[2],
+  ];
+  return createView(eye, target);
 }

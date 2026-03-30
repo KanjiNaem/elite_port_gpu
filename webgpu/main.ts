@@ -1,15 +1,15 @@
 import { mat4 } from "wgpu-matrix";
-import { quitIfWebGPUNotAvailableOrMissingFeatures } from "./utils";
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  showWebGPUInitFailure,
+} from "./utils";
 import { createWireframePipeline } from "./renderer";
 import { createCubeWireframe } from "./cube";
 import { createSphereWireframe } from "./sphere";
-import {
-  createProjection,
-  createViewFromYaw,
-  createViewFromYawPitch,
-} from "./camera";
+import { createProjection, createFlyView } from "./camera";
+import { flyMovementDelta } from "./fly-movement";
 import { renderCockpitOverlay } from "./cockpit-overlay";
-import type { RadarContact } from "./radar-moving-parts";
+import { type RadarContact, RADAR_WORLD_RANGE } from "./radar-moving-parts";
 import {
   PLACEHOLDER_STARFIELD_ENABLED,
   createPlaceholderStarfield,
@@ -38,6 +38,20 @@ const YAW_RIGHT = (90 * Math.PI) / 180;
 // time constant for yaw easing (lower = faster snap between forward / left / right)
 const SNAP_DURATION_MS = 200 / 3;
 
+const RADAR_WORLD_RANGE_SQ = RADAR_WORLD_RANGE * RADAR_WORLD_RANGE;
+
+function withinRadarRange(
+  world: readonly [number, number, number],
+  px: number,
+  py: number,
+  pz: number,
+): boolean {
+  const dx = world[0] - px;
+  const dy = world[1] - py;
+  const dz = world[2] - pz;
+  return dx * dx + dy * dy + dz * dz <= RADAR_WORLD_RANGE_SQ;
+}
+
 function yawViewBucket(yaw: number): "left" | "forward" | "right" {
   const leftMid = (YAW_FORWARD + YAW_LEFT) / 2;
   const rightMid = (YAW_FORWARD + YAW_RIGHT) / 2;
@@ -52,6 +66,7 @@ const MOUSE_SENSITIVITY = 0.003;
 // --- END DEBUG ---
 
 async function init() {
+  try {
   const adapter = await navigator.gpu?.requestAdapter();
   const device = quitIfWebGPUNotAvailableOrMissingFeatures(
     adapter,
@@ -152,6 +167,11 @@ async function init() {
   let lastFrameTime = performance.now();
   let isDocked = true;
 
+  let eyeX = 0;
+  let eyeY = 0;
+  let eyeZ = 0;
+  const flyKeys = new Set<string>();
+
   // camera for perspective debugging (free look)
   let debugYaw = 0;
   let debugPitch = 0;
@@ -184,7 +204,36 @@ async function init() {
   }
   // --- END PERSPECTIVE DEBUG ---
 
+  function registerFlyKey(e: KeyboardEvent, down: boolean): void {
+    const modHeld = e.ctrlKey || e.metaKey || e.altKey;
+    if (e.key === "Shift") {
+      if (down) {
+        if (!modHeld) flyKeys.add("shift");
+      } else flyKeys.delete("shift");
+      return;
+    }
+    const k = e.key.toLowerCase();
+    if (["w", "a", "s", "d"].includes(k)) {
+      if (down) {
+        if (!modHeld) flyKeys.add(k);
+      } else {
+        flyKeys.delete(k);
+      }
+      if (!isDocked && !modHeld) e.preventDefault();
+      return;
+    }
+    if (e.key === " ") {
+      if (down) {
+        if (!modHeld) flyKeys.add(" ");
+      } else {
+        flyKeys.delete(" ");
+      }
+      if (!isDocked && !modHeld) e.preventDefault();
+    }
+  }
+
   window.addEventListener("keydown", (e) => {
+    registerFlyKey(e, true);
     if (!e.ctrlKey) return;
     switch (e.key) {
       case "c":
@@ -192,6 +241,10 @@ async function init() {
           debugYaw = 0;
           debugPitch = 0;
         }
+        eyeX = 0;
+        eyeY = 0;
+        eyeZ = 0;
+        flyKeys.clear();
         e.preventDefault();
         break;
       case "ArrowUp":
@@ -218,6 +271,14 @@ async function init() {
     }
   });
 
+  window.addEventListener("keyup", (e) => {
+    registerFlyKey(e, false);
+  });
+
+  window.addEventListener("blur", () => {
+    flyKeys.clear();
+  });
+
   function frame() {
     if (document.hidden) {
       setTimeout(() => requestAnimationFrame(frame), 500);
@@ -242,6 +303,15 @@ async function init() {
 
     if (!isDocked) {
       rotationAngle += rotationSpeed * deltaTime;
+      const lookYaw = currentYaw + (DEBUG_MOUSE_CAMERA ? debugYaw : 0);
+      const [
+        dx,
+        dy,
+        dz,
+      ] = flyMovementDelta(flyKeys, lookYaw, deltaTime);
+      eyeX += dx;
+      eyeY += dy;
+      eyeZ += dz;
     }
 
     const aspect = width / height;
@@ -250,28 +320,43 @@ async function init() {
     const far = 1000;
     const projection = createProjection(fov, aspect, near, far);
 
-    const view = DEBUG_MOUSE_CAMERA
-      ? createViewFromYawPitch(currentYaw + debugYaw, debugPitch)
-      : createViewFromYaw(currentYaw);
+    const viewYaw = currentYaw + (DEBUG_MOUSE_CAMERA ? debugYaw : 0);
+    const viewPitch = DEBUG_MOUSE_CAMERA ? debugPitch : 0;
+    const view = createFlyView(
+      [
+        eyeX,
+        eyeY,
+        eyeZ,
+      ],
+      viewYaw,
+      viewPitch,
+    );
 
     const t = now / 1000;
     const spherePositions = sphereWorldPositionsAt(t);
+    const staticObjectPositions: [number, number, number][] = [
+      [
+        0,
+        0,
+        -20,
+      ],
+    ];
 
     const radarContacts: RadarContact[] = isDocked
       ? []
       : [
-          {
-            world: [
-              0,
-              0,
-              -20,
-            ],
-            color: rgbaFloatToCssHex(cubeColor),
-          },
-          ...spherePositions.map((world, i) => ({
-            world,
-            color: rgbaFloatToCssHex(MOVING_SPHERES[i]!.color),
-          })),
+          ...staticObjectPositions
+            .filter((w) => withinRadarRange(w, eyeX, eyeY, eyeZ))
+            .map((world) => ({
+              world,
+              color: rgbaFloatToCssHex(cubeColor),
+            })),
+          ...spherePositions
+            .map((world, i) => ({
+              world,
+              color: rgbaFloatToCssHex(MOVING_SPHERES[i]!.color),
+            }))
+            .filter((c) => withinRadarRange(c.world, eyeX, eyeY, eyeZ)),
         ];
 
     const view_ = context.getCurrentTexture().createView();
@@ -396,6 +481,9 @@ async function init() {
   }
 
   requestAnimationFrame(frame);
+  } catch (e) {
+    showWebGPUInitFailure(e);
+  }
 }
 
 init();
